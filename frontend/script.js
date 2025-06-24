@@ -3,7 +3,7 @@
 // Para testes locais: 'http://127.0.0.1:5000'
 // Após o deploy no Render: 'https://<---->.onrender.com'
 // =========================================================
-const API_URL = 'http://127.0.0.1:5000'; // <- MUDAR QUANDO FAZER O DEPLOY
+const API_URL = 'https://lhamas-downloader-api.onrender.com'; // <- MUDAR QUANDO FAZER O DEPLOY
 
 const searchForm = document.getElementById('search-form');
 const searchButton = document.getElementById('search-button');
