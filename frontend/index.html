@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lhamas In Black - YouTube Downloader</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fab fa-youtube"></i> Lhamas In Black Downloader</h1>
+            <div class="tags">
+                <span><i class="fas fa-check-circle"></i> HD 1080p</span>
+                <span><i class="fas fa-check-circle"></i> MP4</span>
+                <span><i class="fas fa-check-circle"></i> Sem anúncios</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Card de Busca Inicial -->
+        <div class="card" id="search-card">
+            <h2>Baixe vídeos do YouTube em alta qualidade</h2>
+            <p>Cole o link do vídeo abaixo e baixe em formato MP4. Rápido, simples e sem anúncios.</p>
+            <form id="search-form">
+                <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." required>
+                <button type="submit" id="search-button">
+                    <span class="button-text"><i class="fas fa-search"></i> Buscar</span>
+                    <span class="spinner" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Card de Resultados -->
+        <div class="card" id="results-card" style="display: none;">
+            <div class="video-info">
+                <img id="video-thumbnail" src="" alt="Thumbnail do vídeo">
+                <div class="video-details">
+                    <h3 id="video-title">Título do vídeo</h3>
+                    <p id="video-author">Autor</p>
+                    <p><i class="fas fa-clock"></i> <span id="video-duration">00:00</span> | <i class="fas fa-eye"></i>
+                        <span id="video-views">0</span> visualizações</p>
+                </div>
+            </div>
+            <div class="download-options" id="download-buttons">
+                <!-- Botões de download serão inseridos aqui pelo JavaScript -->
+            </div>
+        </div>
+
+        <!-- Card de Progresso/Sucesso/Erro -->
+        <div class="card" id="status-card" style="display: none;">
+            <div id="message-content"></div>
+        </div>
+
+        <section class="how-to">
+            <h2>Como baixar vídeos do YouTube</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="icon-wrapper"><i class="fas fa-link"></i></div>
+                    <h3>1. Cole o link</h3>
+                    <p>Copie e cole o link do vídeo do YouTube que deseja baixar.</p>
+                </div>
+                <div class="step">
+                    <div class="icon-wrapper"><i class="fas fa-magnifying-glass"></i></div>
+                    <h3>2. Busque o vídeo</h3>
+                    <p>Nosso sistema irá buscar as informações do vídeo automaticamente.</p>
+                </div>
+                <div class="step">
+                    <div class="icon-wrapper"><i class="fas fa-download"></i></div>
+                    <h3>3. Baixe</h3>
+                    <p>Escolha a qualidade e clique em baixar. Seu vídeo estará pronto.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-brand">
+                <h3><i class="fab fa-youtube"></i> Lhamas In Black Downloader</h3>
+                <p>Baixe vídeos do YouTube em alta qualidade</p>
+            </div>
+            <div class="footer-links">
+                <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2023 Lhamas In Black. Todos os direitos reservados.</p>
+            <p>Este serviço é apenas para fins educacionais e de uso pessoal. Respeite os direitos autorais.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
