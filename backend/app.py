@@ -1,11 +1,16 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yt_dlp
 import logging
 
+# Configuração
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
+
+# Pega a URL do proxy das variáveis de ambiente do Render
+PROXY_URL = os.environ.get('PROXY_URL', None)
 
 
 @app.route('/api/fetch-info', methods=['POST'])
@@ -17,15 +22,25 @@ def fetch_info():
         return jsonify({'error': 'URL não fornecida'}), 400
 
     try:
-        # AQUI ESTÁ A MUDANÇA
         ydl_opts = {
             'quiet': True,
-            'source_address': '0.0.0.0'
+            'noplaylist': True,
         }
+
+        # Adiciona a opção de proxy SOMENTE se a variável de ambiente existir
+        if PROXY_URL:
+            logging.info(f"Usando proxy: {PROXY_URL}")
+            ydl_opts['proxy'] = PROXY_URL
+        else:
+            # Se não houver proxy, tentamos a solução de source_address
+            logging.info(
+                "Nenhum proxy configurado. Tentando com source_address.")
+            ydl_opts['source_address'] = '0.0.0.0'
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # ... (o resto da função continua igual)
             info = ydl.extract_info(url, download=False)
 
+            # O resto do código para processar os formatos permanece o mesmo
             formats = []
             for f in info.get('formats', []):
                 if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4':
@@ -65,9 +80,10 @@ def fetch_info():
 
     except Exception as e:
         logging.error(f"Erro ao buscar informações: {e}")
-        return jsonify({'error': 'Não foi possível buscar informações do vídeo. Verifique o link.'}), 500
+        return jsonify({'error': 'Não foi possível buscar informações do vídeo. Tente outro link ou o proxy pode estar offline.'}), 500
 
 
+# O download direto também pode precisar do proxy
 @app.route('/api/download', methods=['POST'])
 def download():
     data = request.get_json()
@@ -78,12 +94,15 @@ def download():
         return jsonify({'error': 'URL ou formato inválido'}), 400
 
     try:
-        # A MESMA MUDANÇA AQUI
         ydl_opts = {
             'quiet': True,
             'format': format_id,
-            'source_address': '0.0.0.0'
         }
+        if PROXY_URL:
+            ydl_opts['proxy'] = PROXY_URL
+        else:
+            ydl_opts['source_address'] = '0.0.0.0'
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             download_url = info.get('url')
@@ -93,12 +112,10 @@ def download():
         logging.error(f"Erro ao gerar link de download: {e}")
         return jsonify({'error': 'Não foi possível gerar o link de download.'}), 500
 
-# Adicione esta rota para a raiz da API para evitar o erro 404 nos logs
-
 
 @app.route('/')
 def index():
-    return "API do Lhamas Downloader está no ar! Use os endpoints /api/."
+    return "API do Lhamas Downloader está no ar!"
 
 
 if __name__ == '__main__':
