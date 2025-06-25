@@ -9,9 +9,6 @@ app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
 
-# Pega a URL do proxy das variáveis de ambiente do Render
-PROXY_URL = os.environ.get('PROXY_URL', None)
-
 
 @app.route('/api/fetch-info', methods=['POST'])
 def fetch_info():
@@ -22,51 +19,45 @@ def fetch_info():
         return jsonify({'error': 'URL não fornecida'}), 400
 
     try:
+        # --- MUDANÇA PRINCIPAL AQUI ---
+        # 1. 'progressive=True': Pede apenas streams que já contêm vídeo e áudio.
+        # 2. 'file_extension=mp4': Garante que o formato seja MP4.
+        # 3. 'noplaylist=True': Evita baixar playlists inteiras acidentalmente.
         ydl_opts = {
             'quiet': True,
             'noplaylist': True,
+            'format': 'best[progressive=True][ext=mp4]/best[ext=mp4]/best'
         }
 
-        # Adiciona a opção de proxy SOMENTE se a variável de ambiente existir
-        if PROXY_URL:
-            logging.info(f"Usando proxy: {PROXY_URL}")
-            ydl_opts['proxy'] = PROXY_URL
-        else:
-            # Se não houver proxy, tentamos a solução de source_address
-            logging.info(
-                "Nenhum proxy configurado. Tentando com source_address.")
-            ydl_opts['source_address'] = '0.0.0.0'
+        logging.info("Buscando formatos progressivos (vídeo+áudio)...")
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
-            # O resto do código para processar os formatos permanece o mesmo
-            formats = []
+            formats_to_send = []
+
+            # Streams progressivos já estão no campo 'formats'
             for f in info.get('formats', []):
+                # Filtra apenas os formatos que são 'progressivos' e mp4
                 if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4':
                     resolution = f.get('height')
                     if resolution:
-                        formats.append({
+                        formats_to_send.append({
                             'format_id': f.get('format_id'),
                             'resolution': f'{resolution}p',
                             'filesize_mb': round(f.get('filesize', 0) / (1024*1024), 2) if f.get('filesize') else 0
                         })
 
-            audio_only = next((f for f in info['formats'] if f.get(
-                'vcodec') == 'none' and f.get('acodec') != 'none'), None)
-            if audio_only:
-                formats.append({
-                    'format_id': audio_only.get('format_id'),
-                    'resolution': 'Somente Áudio',
-                    'filesize_mb': round(audio_only.get('filesize', 0) / (1024*1024), 2) if audio_only.get('filesize') else 0
+            # Adiciona o melhor áudio como uma opção separada
+            audio_only = ydl.extract_info(
+                url, download=False, extra_info={'format': 'bestaudio'})
+            best_audio_format = audio_only.get('formats', [{}])[0]
+            if best_audio_format:
+                formats_to_send.append({
+                    'format_id': best_audio_format.get('format_id'),
+                    'resolution': 'Somente Áudio (MP3)',
+                    'filesize_mb': round(best_audio_format.get('filesize', 0) / (1024*1024), 2) if best_audio_format.get('filesize') else 0
                 })
-
-            unique_formats = []
-            seen_resolutions = set()
-            for f in sorted(formats, key=lambda x: x.get('filesize_mb', 0), reverse=True):
-                if f['resolution'] not in seen_resolutions:
-                    unique_formats.append(f)
-                    seen_resolutions.add(f['resolution'])
 
             video_info = {
                 'title': info.get('title'),
@@ -74,16 +65,16 @@ def fetch_info():
                 'author': info.get('uploader'),
                 'duration': info.get('duration_string'),
                 'views': info.get('view_count'),
-                'formats': sorted(unique_formats, key=lambda x: (x['resolution'] != 'Somente Áudio', int(x['resolution'][:-1]) if x['resolution'] != 'Somente Áudio' else 0), reverse=True)
+                'formats': formats_to_send
             }
             return jsonify(video_info)
 
     except Exception as e:
         logging.error(f"Erro ao buscar informações: {e}")
-        return jsonify({'error': 'Não foi possível buscar informações do vídeo. Tente outro link ou o proxy pode estar offline.'}), 500
+        # Mensagem de erro genérica, pois não é mais um problema de proxy
+        return jsonify({'error': 'Não foi possível buscar informações do vídeo. Verifique o link ou tente mais tarde.'}), 500
 
 
-# O download direto também pode precisar do proxy
 @app.route('/api/download', methods=['POST'])
 def download():
     data = request.get_json()
@@ -94,14 +85,19 @@ def download():
         return jsonify({'error': 'URL ou formato inválido'}), 400
 
     try:
+        # Pedido simples, sem proxy, usando o format_id escolhido
         ydl_opts = {
             'quiet': True,
-            'format': format_id,
+            'format': format_id
         }
-        if PROXY_URL:
-            ydl_opts['proxy'] = PROXY_URL
-        else:
-            ydl_opts['source_address'] = '0.0.0.0'
+
+        # Para downloads de áudio, podemos converter para MP3
+        if 'audio' in format_id.lower() or 'Somente' in request.json.get('resolution', ''):
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
