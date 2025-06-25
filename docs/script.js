@@ -1,9 +1,8 @@
 // =========================================================
 // !!! IMPORTANTE: CONFIGURAR A URL DA API AQUI !!!
-// Para testes locais: 'http://127.0.0.1:5000'
-// Após o deploy no Render: 'https://<---->.onrender.com'
+// Após o deploy no Render: 'https://seu-app.onrender.com'
 // =========================================================
-const API_URL = 'https://lhamas-downloader-api.onrender.com'; // <- MUDAR QUANDO FAZER O DEPLOY
+const API_URL = 'https://lhamas-downloader-api.onrender.com';
 
 const searchForm = document.getElementById('search-form');
 const searchButton = document.getElementById('search-button');
@@ -23,14 +22,13 @@ const videoViews = document.getElementById('video-views');
 const downloadButtonsContainer = document.getElementById('download-buttons');
 const messageContent = document.getElementById('message-content');
 
-let currentUrl = '';
+// Não precisamos mais da variável 'currentUrl', pois a URL de download já vem pronta.
 
 searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = youtubeUrlInput.value.trim();
     if (!url) return;
 
-    currentUrl = url;
     toggleLoading(true);
     resultsCard.style.display = 'none';
     statusCard.style.display = 'none';
@@ -48,10 +46,13 @@ searchForm.addEventListener('submit', async (e) => {
         }
 
         const data = await response.json();
+        if (data.formats && data.formats.length === 0) {
+            throw new Error('Nenhum formato de download disponível foi encontrado para este vídeo.');
+        }
         displayResults(data);
 
     } catch (error) {
-        displayStatus('error', `Erro: ${error.message}`);
+        displayStatus('error', `Erro ao buscar vídeo`, error.message);
     } finally {
         toggleLoading(false);
     }
@@ -75,55 +76,56 @@ function displayResults(data) {
     videoTitle.textContent = data.title;
     videoAuthor.textContent = data.author;
     videoDuration.textContent = data.duration;
-    videoViews.textContent = data.views.toLocaleString('pt-BR');
+    // Garante que 'views' exista e seja um número antes de formatar
+    videoViews.textContent = (data.views || 0).toLocaleString('pt-BR');
 
     downloadButtonsContainer.innerHTML = ''; // Limpa botões antigos
 
     data.formats.forEach(format => {
         const button = document.createElement('button');
-        const isAudio = format.resolution === 'Somente Áudio';
+        // A API agora usa 'Somente Áudio (MP3)' na resolução
+        const isAudio = format.resolution.includes('Áudio');
         button.className = isAudio ? 'audio-btn' : 'download-btn';
 
         button.innerHTML = isAudio
-            ? `<i class="fas fa-music"></i> ${format.resolution}`
+            ? `<i class="fas fa-music"></i> Baixar ${format.resolution}`
             : `<i class="fas fa-download"></i> Baixar MP4 (${format.resolution})`;
 
-        button.dataset.formatId = format.format_id;
-        button.addEventListener('click', () => downloadVideo(format.format_id, `${data.title} - ${format.resolution}.mp4`));
+        // --- MUDANÇA PRINCIPAL AQUI ---
+        // A função de download agora recebe a URL direta e um nome de arquivo seguro.
+        button.addEventListener('click', () => downloadVideo(
+            format.download_url,
+            `${data.clean_title} - ${format.resolution}.mp4`
+        ));
+
         downloadButtonsContainer.appendChild(button);
     });
 
     resultsCard.style.display = 'block';
 }
 
-async function downloadVideo(formatId, filename) {
-    displayStatus('progress', `Preparando o download...`);
+// --- MUDANÇA PRINCIPAL AQUI ---
+// A função 'downloadVideo' foi simplificada. Ela não faz mais uma chamada de API.
+// Ela apenas pega a URL de download que já recebemos e cria um link para o download.
+function downloadVideo(downloadUrl, filename) {
+    displayStatus('progress', `Iniciando download...`);
+
     try {
-        const response = await fetch(`${API_URL}/api/download`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: currentUrl, format_id: formatId })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Falha ao obter o link de download.');
-        }
-
-        const data = await response.json();
-
-        // Cria um link temporário e clica nele para iniciar o download
+        // Cria um elemento de link <a> temporário
         const link = document.createElement('a');
-        link.href = data.download_url;
-        link.target = '_blank';
+        link.href = downloadUrl;
+
+        // Define o nome do arquivo que será sugerido no download
         link.download = filename;
+
+        // Adiciona o link ao corpo do documento, clica nele programaticamente, e depois o remove.
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        displayStatus('success', `Download Concluído!`, 'Seu download foi iniciado em uma nova aba.');
+        displayStatus('success', `Download Iniciado!`, 'Seu download deve ter começado. Verifique a barra de downloads do seu navegador.');
     } catch (error) {
-        displayStatus('error', `Erro no Download: ${error.message}`);
+        displayStatus('error', `Erro ao iniciar download`, error.message);
     }
 }
 
@@ -151,7 +153,7 @@ function displayStatus(type, title, message = '') {
         <div class="status-icon ${colorClass}">${icon}</div>
         <h3>${title}</h3>
         <p>${message}</p>
-        <button id="new-download-btn">Novo Download</button>
+        <button id="new-download-btn">Fazer Novo Download</button>
     `;
     statusCard.style.display = 'block';
 
